@@ -32,6 +32,16 @@ if("${APPLY_PATCHES}" STREQUAL TRUE)
 	set(LDACBT_APPLY_PATCHES "TRUE")
 endif()
 
+option(LDACBT_LEGACY_SYMLINKS "Generate Symlinks for legacy ldacBT_enc.so" OFF)
+if("${LDACBT_LEGACY}" STREQUAL ON)
+	set(LDACBT_SYMLINKS "TRUE")
+endif()
+
+option(LDAC_ENCODER_ONLY "Build enconder only LDACBT" OFF)
+if("${LDACBT_ENCODER_ONLY}" STREQUAL ON)
+	set(LDACBT_ENCODER_DEFINE "-D_ENCODER_ONLY")
+endif()
+
 add_subdirectory(pkgconfig)
 
 include_directories(libldac/inc)
@@ -42,29 +52,15 @@ if("$LDACBT_APPLY_PATCHES" STREQUAL TRUE)
                         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endif()
 
-# libldacBT_enc
-add_library(ldacBT_enc SHARED
+# libldacBT
+add_library(ldacBT SHARED
         libldac/src/ldaclib.c
         libldac/src/ldacBT.c
         )
 
-target_link_libraries(ldacBT_enc m)
-target_compile_definitions(ldacBT_enc PUBLIC ${LDAC_SOFT_FLOAT_DEFINE})
-set_target_properties(ldacBT_enc PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR}
-        PUBLIC_HEADER libldac/inc/ldacBT.h
-        )
-
-# libldacBT_dec
-add_library(ldacBT_dec SHARED
-        libldac/src/ldaclib.c
-        libldac/src/ldacBT.c
-        )
-
-target_link_libraries(ldacBT_dec m)
-target_compile_definitions(ldacBT_dec PUBLIC ${LDAC_SOFT_FLOAT_DEFINE})
-set_target_properties(ldacBT_dec PROPERTIES
+target_link_libraries(ldacBT m)
+target_compile_definitions(ldacBT PUBLIC ${LDAC_ENCODER_DEFINE} ${LDAC_SOFT_FLOAT_DEFINE})
+set_target_properties(ldacBT PROPERTIES
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR}
         PUBLIC_HEADER libldac/inc/ldacBT.h
@@ -75,17 +71,36 @@ add_library(ldacBT_abr SHARED
         libldac/abr/src/ldacBT_abr.c
         )
 
-target_link_libraries(ldacBT_abr ldacBT_enc ldacBT_dec)
+target_link_libraries(ldacBT_abr ldacBT)
 set_target_properties(ldacBT_abr PROPERTIES
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR}
         PUBLIC_HEADER libldac/abr/inc/ldacBT_abr.h
         )
 
+if("$LDACBT_SYMLINKS" STREQUAL TRUE)
+ADD_CUSTOM_TARGET(ldacBT_enc ALL
+                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${ldacBT} ${ldacBT_enc})
+set_target_properties(ldacBT PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+        PUBLIC_HEADER libldac/inc/ldacBT.h
+        )
+endif()
+
+if("$LDACBT_SYMLINKS" STREQUAL TRUE and "$LDACBT_ENCODER_ONLY" STREQUAL "OFF")
+ADD_CUSTOM_TARGET(ldacBT_dec ALL
+                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${target} ${ldacBT_dec})
+set_target_properties(ldacBT PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+        PUBLIC_HEADER libldac/inc/ldacBT.h
+        )
+endif()
+
 install(TARGETS
-                ldacBT_enc
-                ldacBT_dec
-		ldacBT_abr
+                ldacBT
+				ldacBT_abr
         LIBRARY
                 DESTINATION ${INSTALL_LIBDIR}
         PUBLIC_HEADER
